@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ridham Vault Ultra Pro Max+</title>
+    
+    <!-- Resources -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* --- ALL 5 THEMES --- */
+        :root {
+            --bg: #0f0c29; --accent: #bb86fc; --glass: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.1); --text: #ffffff; --font: 'Poppins', sans-serif; --shadow: #774ecb;
+        }
+        body.theme-hacker { --bg: #000; --accent: #00ff41; --glass: rgba(0, 255, 65, 0.05); --border: rgba(0, 255, 65, 0.2); --text: #00ff41; --font: 'Share Tech Mono', monospace; --shadow: #008f11; }
+        body.theme-midnight { --bg: #010b13; --accent: #00d2ff; --glass: rgba(0, 210, 255, 0.05); --border: rgba(0, 210, 255, 0.2); --text: #e0faff; --shadow: #0088aa; }
+        body.theme-crimson { --bg: #1a0505; --accent: #ff4d4d; --glass: rgba(255, 77, 77, 0.05); --border: rgba(255, 77, 77, 0.2); --text: #ffcccc; --shadow: #b30000; }
+        body.theme-light { --bg: #f0f2f5; --accent: #6200ee; --glass: rgba(255, 255, 255, 0.9); --border: rgba(0, 0, 0, 0.1); --text: #1a1a2e; --shadow: #3700b3; }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; font-family: var(--font); background: var(--bg); color: var(--text); transition: background 0.5s ease; min-height: 100vh; overflow-x: hidden; }
+
+        #matrix-canvas { position: fixed; top: 0; left: 0; z-index: -1; display: none; }
+        body.theme-hacker #matrix-canvas { display: block; }
+
+        @keyframes floatLogo { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+
+        /* SPLASH SCREEN */
+        #splash-screen { position: fixed; inset: 0; background: #0f0c29; z-index: 50000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .splash-logo { width: 120px; height: 120px; border-radius: 50%; box-shadow: 0 0 50px var(--accent); animation: splashPop 1.5s ease-out forwards; }
+        .loader-bar { width: 200px; height: 4px; background: rgba(255,255,255,0.1); margin-top: 40px; border-radius: 10px; overflow: hidden; }
+        .loader-fill { width: 0%; height: 100%; background: var(--accent); animation: fillProgress 2.5s ease-in-out forwards; }
+        @keyframes fillProgress { 0% { width: 0%; } 100% { width: 100%; } }
+        @keyframes splashPop { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        /* SIDEBAR */
+        #sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: var(--bg); border-right: 1px solid var(--border); z-index: 100002; transition: 0.4s; padding: 30px 20px; display: flex; flex-direction: column; }
+        #sidebar.active { left: 0; }
+        .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100001; display: none; backdrop-filter: blur(4px); }
+        .sidebar-header { text-align: center; margin-bottom: 25px; }
+        .sidebar-logo { width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--accent); margin-bottom: 10px; }
+        .menu-item { padding: 15px; margin-bottom: 10px; background: var(--glass); border-radius: 12px; display: flex; align-items: center; gap: 15px; cursor: pointer; }
+
+        /* HEADER */
+        .header { padding: 10px 15px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border); }
+        .top-row { display: flex; align-items: center; justify-content: space-between; }
+        .header-logo-full { height: 45px; animation: floatLogo 2s infinite alternate; }
+        .left-menu-icon { font-size: 22px; color: var(--accent); cursor: pointer; }
+
+        /* DASHBOARD GRID */
+        .search-bar { width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: #fff; margin-top: 10px; outline: none; }
+        .container { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        
+        /* ACCOUNT CARD */
+        .card { background: var(--glass); border-radius: 20px; padding: 12px; border: 1px solid var(--border); text-align: center; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
+        .card img.acc-icon { width: 40px; height: 40px; border-radius: 10px; margin-bottom: 8px; }
+        
+        /* QR CARD (FIXED BORDER TO TEXT) */
+        .qr-card { padding: 0 !important; border: 3px solid #000000 !important; background: #000; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        .qr-full-img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
+        .qr-label-overlay { background: #000; color: #fff; padding: 10px 5px; font-size: 11px; font-weight: 600; text-align: center; width: 100%; }
+        
+        .qr-icon-tag { position: absolute; top: 8px; right: 8px; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 1px solid rgba(255,255,255,0.2); z-index: 2; }
+        .qr-copy-tag { position: absolute; top: 8px; left: 8px; background: var(--accent); color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); z-index: 10; }
+
+        .info-row { font-size: 9px; opacity: 0.8; background: rgba(128,128,128,0.1); padding: 4px 8px; border-radius: 8px; margin-top: 5px; display: flex; align-items: center; justify-content: space-between; position: relative; }
+        .info-row.pass-row { color: var(--accent); font-weight: bold; }
+        .copy-ico { cursor: pointer; color: var(--accent); font-size: 14px; padding: 5px 8px; z-index: 10; position: relative; }
+
+        /* FLOATING BUTTONS */
+        .fab { position: fixed; bottom: 30px; right: 25px; width: 60px; height: 60px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; box-shadow: 0 5px 15px var(--accent); border: none; z-index: 999; }
+        .fab-qr { position: fixed; bottom: 105px; right: 25px; width: 60px; height: 60px; background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; box-shadow: 0 5px 15px rgba(0, 210, 255, 0.4); border: none; z-index: 999; }
+
+        /* MODALS */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); align-items: center; justify-content: center; z-index: 5000; padding: 20px; }
+        .modal-content { background: var(--bg); padding: 25px; border-radius: 25px; width: 100%; max-width: 320px; border: 1px solid var(--border); }
+        .modal-input { width: 100%; padding: 12px; margin: 8px 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; outline: none; }
+        .action-btn { flex: 1; background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 12px; font-weight: 800; font-size: 10px; cursor: pointer; box-shadow: 0 4px var(--shadow); }
+        
+        #auth-screen { position: fixed; inset: 0; background: radial-gradient(circle at center, #1e1b4b 0%, #0f0c29 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 30000; }
+        #toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; padding: 12px 30px; border-radius: 50px; display: none; z-index: 100000; font-size: 12px; font-weight: bold; pointer-events: none; }
+    </style>
+</head>
+<body class="theme-purple">
+
+<canvas id="matrix-canvas"></canvas>
+
+<div id="splash-screen">
+    <img src="https://i.postimg.cc/nzsjqbTR/ic-launcher-round1.png" class="splash-logo">
+    <div style="font-weight: 900; letter-spacing: 5px; font-size: 1.5rem; margin-top: 20px; color:#fff;">RIDHAM PRO</div>
+    <div class="loader-bar"><div class="loader-fill"></div></div>
+</div>
+
+<div id="toast">Copied Successfully!</div>
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div id="sidebar">
+    <div class="sidebar-header">
+        <img src="https://i.postimg.cc/nzsjqbTR/ic-launcher-round1.png" class="sidebar-logo">
+        <h3 style="margin:0; letter-spacing:3px; font-weight:900;">RIDHAM</h3>
+        <p id="user-display-email" style="font-size:10px; opacity:0.6;"></p>
+    </div>
+    <div class="menu-item" onclick="openThemeModal()"><i class="fa-solid fa-palette"></i><span>Themes</span></div>
+    <div class="menu-item" onclick="logout()" style="margin-top:auto; color:#ff4d4d;"><i class="fa-solid fa-power-off"></i><span>Logout</span></div>
+</div>
+
+<div id="auth-screen" style="display:none;">
+    <img src="https://i.postimg.cc/nzsjqbTR/ic-launcher-round1.png" style="width:120px; border-radius:50%; margin-bottom:20px;">
+    <h2 style="letter-spacing:5px; color:#fff;">RIDHAM</h2>
+    <input type="email" id="log-email" class="modal-input" style="max-width:300px" placeholder="Email">
+    <input type="password" id="log-pass" class="modal-input" style="max-width:300px" placeholder="Password">
+    <button onclick="handleAuth()" style="width:200px; padding:15px; border-radius:30px; background:var(--accent); border:none; color:#fff; font-weight:800; margin-top:20px;">LOGIN</button>
+</div>
+
+<div id="main-content" style="display:none;">
+    <div class="header">
+        <div class="top-row">
+            <i class="fa-solid fa-bars-staggered left-menu-icon" onclick="toggleSidebar()"></i>
+            <img src="https://i.postimg.cc/tg1P9ccn/20251226-105223.png" class="header-logo-full">
+            <div style="width:22px;"></div>
+        </div>
+        <input type="text" id="search-bar" class="search-bar" placeholder="Search..." oninput="filterData()">
+    </div>
+    <div class="container" id="vault-items"></div>
+    
+    <button class="fab-qr" onclick="openQrModal()"><i class="fa-solid fa-qrcode"></i></button>
+    <button class="fab" onclick="openModal()"><i class="fa-solid fa-plus"></i></button>
+</div>
+
+<!-- MODALS -->
+<div class="modal" id="modal">
+    <div class="modal-content">
+        <h3 style="text-align:center;">ACCOUNT</h3>
+        <input type="text" id="acc-name" class="modal-input" placeholder="Name">
+        <input type="text" id="acc-logo" class="modal-input" placeholder="Logo URL">
+        <input type="text" id="acc-user" class="modal-input" placeholder="User">
+        <input type="text" id="acc-pass" class="modal-input" placeholder="Password">
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="action-btn" onclick="saveToCloud()">SAVE</button>
+            <button class="action-btn" style="background:#444;" onclick="closeModal()">BACK</button>
+            <button id="del-btn-ui" class="action-btn" style="background:#ff4d4d; display:none;" onclick="deleteForever()">DELETE</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="qr-modal">
+    <div class="modal-content">
+        <h3 style="text-align:center;">QR / WHATSAPP</h3>
+        <input type="text" id="qr-name" class="modal-input" placeholder="Label">
+        <input type="text" id="qr-url" class="modal-input" placeholder="QR Image URL">
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="action-btn" style="background:#00d2ff;" onclick="saveQrToCloud()">SAVE QR</button>
+            <button class="action-btn" style="background:#444;" onclick="closeModal()">BACK</button>
+            <button id="qr-del-btn" class="action-btn" style="background:#ff4d4d; display:none;" onclick="deleteQrForever()">DELETE</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="theme-modal">
+    <div class="modal-content">
+        <h3 style="text-align:center;">THEMES</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;">
+            <div onclick="setTheme('theme-purple')" style="background:#0f0c29; padding:12px; border-radius:12px; border:1px solid #bb86fc; text-align:center; cursor:pointer;">PURPLE</div>
+            <div onclick="setTheme('theme-hacker')" style="background:#000; color:#00ff41; padding:12px; border-radius:12px; border:1px solid #00ff41; text-align:center; cursor:pointer;">HACKER</div>
+            <div onclick="setTheme('theme-midnight')" style="background:#010b13; padding:12px; border-radius:12px; border:1px solid #00d2ff; text-align:center; cursor:pointer;">MIDNIGHT</div>
+            <div onclick="setTheme('theme-crimson')" style="background:#1a0505; color:#ff4d4d; padding:12px; border-radius:12px; border:1px solid #ff4d4d; text-align:center; cursor:pointer;">CRIMSON</div>
+            <div onclick="setTheme('theme-light')" style="background:#fff; color:#000; padding:12px; border-radius:12px; border:1px solid #6200ee; text-align:center; cursor:pointer;">LIGHT</div>
+        </div>
+        <button class="action-btn" style="width:100%; margin-top:20px; background:#444;" onclick="document.getElementById('theme-modal').style.display='none'">CLOSE</button>
+    </div>
+</div>
+
+<script>
+    window.onload = () => { setTimeout(() => { document.getElementById('splash-screen').style.display = 'none'; }, 2600); initMatrix(); };
+    const firebaseConfig = { apiKey: "AIzaSyCIj9gLNxEqbJN5vBEHWkbpYJOYjiE_SCs", authDomain: "ultra-vault.firebaseapp.com", projectId: "ultra-vault", storageBucket: "ultra-vault.appspot.com", messagingSenderId: "292858589106", appId: "1:292858589106:web:caa4acb57e46907fbd3eab" };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth(), db = firebase.firestore();
+    let currentUser = null, selectedId = null, allData = [];
+
+    auth.onAuthStateChanged(user => {
+        if (user) { 
+            currentUser = user; document.getElementById('user-display-email').innerText = user.email;
+            document.getElementById('auth-screen').style.display = 'none'; document.getElementById('main-content').style.display = 'block'; 
+            syncData(); 
+        } else { document.getElementById('auth-screen').style.display = 'flex'; document.getElementById('main-content').style.display = 'none'; }
+    });
+
+    function syncData() { db.collection("vault").where("userId", "==", currentUser.uid).onSnapshot(snap => { allData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); filterData(); }); }
+    
+    function filterData() {
+        const q = document.getElementById('search-bar').value.toLowerCase();
+        const container = document.getElementById('vault-items'); container.innerHTML = '';
+        allData.filter(d => d.name.toLowerCase().includes(q)).forEach(item => {
+            const card = document.createElement('div');
+            if(item.isQR) {
+                card.className = 'card qr-card'; card.onclick = () => openQrModal(item.id, item);
+                card.innerHTML = `<div class="qr-copy-tag" onclick="copyIt(event,'${item.qrUrl}')"><i class="fa-solid fa-copy"></i></div><div class="qr-icon-tag"><i class="fa-solid fa-qrcode"></i></div><img class="qr-full-img" src="${item.qrUrl}"><div class="qr-label-overlay">${item.name}</div>`;
+            } else {
+                card.className = 'card'; card.onclick = () => openModal(item.id, item);
+                card.innerHTML = `<img class="acc-icon" src="${item.logo || 'https://ui-avatars.com/api/?name='+item.name}"><h4>${item.name}</h4>
+                    <div class="info-row"><span>${item.user.substring(0,8)}..</span><i class="fa-solid fa-copy copy-ico" onclick="copyIt(event,'${item.user}')"></i></div>
+                    <div class="info-row pass-row"><span>${item.pass.substring(0,8)}..</span><i class="fa-solid fa-copy copy-ico" onclick="copyIt(event,'${item.pass}')"></i></div>`;
+            }
+            container.appendChild(card);
+        });
+    }
+
+    function copyIt(ev, txt) {
+        ev.stopPropagation(); if (!txt) return;
+        const showT = () => { const t = document.getElementById('toast'); t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 1500); };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(txt).then(showT).catch(() => fallbackC(txt, showT));
+        } else { fallbackC(txt, showT); }
+    }
+    function fallbackC(t, cb) {
+        const ta = document.createElement("textarea"); ta.value = t; ta.style.position="fixed"; ta.style.left="-9999px";
+        document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, 99999);
+        try { if (document.execCommand('copy')) cb(); } catch (e) {} document.body.removeChild(ta);
+    }
+
+    async function handleAuth() { const e = document.getElementById('log-email').value, p = document.getElementById('log-pass').value; try { await auth.signInWithEmailAndPassword(e, p); } catch (err) { alert(err.message); } }
+    async function saveToCloud() { const d = { name: document.getElementById('acc-name').value, logo: document.getElementById('acc-logo').value, user: document.getElementById('acc-user').value, pass: document.getElementById('acc-pass').value, userId: currentUser.uid, isQR: false }; if(selectedId) await db.collection("vault").doc(selectedId).update(d); else await db.collection("vault").add(d); closeModal(); }
+    async function deleteForever() { if(selectedId && confirm("Delete?")) { await db.collection("vault").doc(selectedId).delete(); closeModal(); } }
+    async function saveQrToCloud() { const d = { name: document.getElementById('qr-name').value, qrUrl: document.getElementById('qr-url').value, userId: currentUser.uid, isQR: true }; if(selectedId) await db.collection("vault").doc(selectedId).update(d); else await db.collection("vault").add(d); closeModal(); }
+    async function deleteQrForever() { if(selectedId && confirm("Delete QR?")) { await db.collection("vault").doc(selectedId).delete(); closeModal(); } }
+
+    function setTheme(t) { document.body.className = t; localStorage.setItem('ridham_theme', t); }
+    setTheme(localStorage.getItem('ridham_theme') || 'theme-purple');
+    function toggleSidebar() { const side = document.getElementById('sidebar'); const over = document.querySelector('.sidebar-overlay'); if(side.classList.contains('active')) { side.classList.remove('active'); over.style.display = 'none'; } else { side.classList.add('active'); over.style.display = 'block'; } }
+    function openModal(id = null, data = null) { selectedId = id; document.getElementById('modal').style.display = 'flex'; if(id) { document.getElementById('acc-name').value = data.name; document.getElementById('acc-user').value = data.user; document.getElementById('acc-pass').value = data.pass; document.getElementById('del-btn-ui').style.display = 'block'; } else { document.querySelectorAll('#modal input').forEach(i => i.value = ''); document.getElementById('del-btn-ui').style.display = 'none'; } }
+    function openQrModal(id = null, data = null) { selectedId = id; document.getElementById('qr-modal').style.display = 'flex'; if(id) { document.getElementById('qr-name').value = data.name; document.getElementById('qr-url').value = data.qrUrl; document.getElementById('qr-del-btn').style.display = 'block'; } else { document.getElementById('qr-name').value = ''; document.getElementById('qr-url').value = ''; document.getElementById('qr-del-btn').style.display = 'none'; } }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('qr-modal').style.display = 'none'; selectedId = null; }
+    function openThemeModal() { toggleSidebar(); document.getElementById('theme-modal').style.display = 'flex'; }
+    function logout() { auth.signOut(); }
+    function initMatrix() { const c = document.getElementById('matrix-canvas'); const ctx = c.getContext('2d'); c.width = window.innerWidth; c.height = window.innerHeight; const letters = "01"; const fontSize = 10; const columns = c.width / fontSize; const drops = []; for (let i = 0; i < columns; i++) drops[i] = 1; function draw() { ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; ctx.fillRect(0, 0, c.width, c.height); ctx.fillStyle = "#00ff41"; ctx.font = fontSize + "px monospace"; for (let i = 0; i < drops.length; i++) { const text = letters.charAt(Math.floor(Math.random() * letters.length)); ctx.fillText(text, i * fontSize, drops[i] * fontSize); if (drops[i] * fontSize > c.height && Math.random() > 0.975) drops[i] = 0; drops[i]++; } } setInterval(draw, 33); }
+</script>
+</body>
+</html>
